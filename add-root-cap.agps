@@ -1,0 +1,27 @@
+
+!  Add root cap
+cbn rootmap [(0,0),(1,0)]
+csb rootc1 rootmap wing
+cbn roottemap [(0,0),(0,1)]
+csb rootte roottemap tesrf
+ccm rootcrv [rootte,rootc1] periodicity=yes
+lim rootcrv x xrcmin xrcmax
+lim rootcrv z zrcmin zrcmax
+call get_coord(xrcmin,0,0,xrcmn,y,q3)
+call get_coord(xrcmax,0,0,xrcmx,q2,q3)
+call get_coord(zrcmin,0,0,q1,q2,zrcmn)
+call get_coord(zrcmax,0,0,q1,q2,zrcmx)
+ren [rstr1,rstr2,rca,rcapt18] ignore=yes
+cst rstr1 [(xrcmn-10,y,zrcmn-10),(xrcmx+10,y,zrcmn-10)]
+cst rstr2 [(xrcmn-10,y,zrcmx+10),(xrcmx+10,y,zrcmx+10)]
+cay rootca [rstr1,rstr2]
+fsu rootcapt18 rootca
+!   Imprint tipcrv to T18 surf for Trim surf
+ren [rootcrvib,rootcrvob,rootisrf,rootcapt18i,rootcap] ignore=yes
+trn rootcrvib rootcrv (0,-5,0)
+trn rootcrvob rootcrv (0,5,0)
+stc rootisrf [rootcrvib,rootcrvob]
+ssi rootcapt18 rootisrf rootcapt18i rootisrfi
+rvc rootcapt18i.1
+cts rootcap Base-surface=rootcapt18 outer-boundary=rootcapt18i.L
+dra rootcap col=mag

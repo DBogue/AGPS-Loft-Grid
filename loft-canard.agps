@@ -1,0 +1,89 @@
+!  loft-wing.agps
+!   Nov 2018  D.r.Bogue
+!
+!   Inputs
+!      lestr,testr  T9  string  of 3D points defining LE/TE  (X,Y,Z)
+!      tcpts        T9 string of 2D points defining t/c vs Y   (Y,t/c)
+!      airfpts      T9 string of airfoil number (Y,airfoilindex)
+!      twiststr     T9  string of twist variable
+!      radlemin     Symbol for minimum LE radius
+!      tethick      Symbol for trailing edge thickness  - Constant across span
+!      ybreak       Symbol for location of IB/OB LE break
+!      dyblend      Symbol for delta-span IB & OB for blend region
+!      dupytol      Symbol for near-duplicate y-sections (specs, kinks,curves)
+!________________________________________________
+! Outputs
+!      wsib   T18 surface  for IB wing
+!      wstr   T18 surface  for blend section between IB  &  OB wing
+!      wsob   T18 surface  for OB wing
+!      wing       CCM  of first 3 wing objects
+!      lec        Curve for LE
+!      tec        Curve for TE
+!
+!________________________________________________
+! Created objects
+!      airfoillist T0  list of airfoil curves
+!      ysect       T9  string of where the airfoils are to be placed
+!
+!__________________________________________________
+!
+
+
+reset
+on error exit
+
+call put_logical(BOOM,/home/parallels/AGPS2281/pack/Boom)
+!    Hard-coding inputs for initial scripting
+cst lestr  [(0,0,0),(200,115,0)]
+cst testr  [(200,0,0),(250,165,0)]
+ybreak=363.5009
+cst tcpts [(0,0.03),(250,0.025)]
+cst twiststr [(0,0),(250.0,0.0)]
+!  3 airfoils used
+!    airfoil 1 is naca65abic
+!    airfoil 3 is biconvex
+!    airfoil 2 is blend of both
+cst airfpts [(0,1),(250,1)]
+radlemin= 1/8
+tethick= 1/8
+dyblend= 20
+dupytol=7
+
+!___________________________________________________
+
+!   Read in airfoils and bin them in airfoilinputs
+res n65abic-5
+atl airfoilinputs [airfoil]
+ren airfoil
+res  n65abic-transition
+atl airfoilinputs [airfoil]
+ren airfoil
+res  biconvex
+atl airfoilinputs [biconvfoil]
+ren [biconvfoil,biconvex]
+!!    Feature List
+!     1. Automatic planform detection  (kinks?  Curves?)  -> Not yet
+!     2. Sort  and eliminate  proximate duplicates   --> Done
+!     3. Offset LE/TE planforms --> Yup
+!     
+@BOOM:set-span-sections.agps
+
+!   Convert airfoils to 3D
+@BOOM:airfoil-2D-to-3D.agps
+
+!  Position on wing
+@BOOM:hang-airfoils.agps
+
+! Fit surfaces
+@BOOM:fit-tail-surfaces.agps
+
+!   Add TE surf
+@BOOM:add-te-surf.agps
+!   Add Tip Cap
+@BOOM:add-tip-cap.agps
+!   Add Root Cap
+@BOOM:add-root-cap.agps
+
+ren wing canard
+sav c69d [canard]
+sav c69d-caps [tesrf,tipcap,rootcap]

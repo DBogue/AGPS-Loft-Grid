@@ -1,0 +1,22 @@
+!  fit-wing-surfaces.agps
+!   D.Bogue   Nov 2018
+!
+!   Inputs
+!      wgridlist   T0 list of wing airfoils (each  a T9 string of pts)
+!      ibreak      symbol Index for the spanwise break
+!
+!   Outputs
+!      wsib   T18 surface for inboard wing
+!      wstr   T18 surface for blend region
+!      wsob   T18 surface for outboard wing
+!___________________________________________________
+!
+
+!  Grids for 3 spanwise sections
+!    --> Last 3 sections are fictitious and artifact of spanwise break in wing planform
+cay cgrid wgridlist.1:L-3
+
+
+!  Surface fits for each region
+fsu wing cgrid cubic
+dra wing col=33 era=n

@@ -1,0 +1,181 @@
+!   blend-slats.agps
+!    DBogue    10/18
+!
+!  Objective:  Blend inboard and outboard slats if specified trim plan exists
+!
+!  Method: 
+!     1. Extend OB edge of IB slat and IB edge of OB slat through trim plane
+!     2. Trim it to that plane
+!     3. discretize the results consistently. There will be 2 curves on the trim plane
+!     4. Average the points. It's not ideal, but there is no perfect answer. Consider weighting the average scheme
+!     5. Blend the trim plane section to the undeflected wing trim plane cut
+!     6. Create cutting plane spanwise to connect new trim curve to trailing edge of arc-conic surfaces
+!     7. Create 4-sided cubic surfaces for arc-conic surfaces, upper & lower slat surfaces (3 total)
+!
+!   Inputs: 
+!     wingup,winglo
+!     slatbreak 4D point with slat break specification
+!     slats:  list of list of untrimmed and undeflected slats
+!     trimmedslats:  list of list of trimmed and deflected slats
+!     slatlist
+!
+!   Outputs
+!      blendlist  -> Same format as trimmedslats list
+!___________________________________________
+!
+
+ren [blendlist] ignore=yes
+ren [wui,wuicpt,bcaft,brkconic,iconblend,oconblend,bl1,bl2] ignore=yes
+ren [temap,blteib,blteob,arcib2,arcob1,slbte,slbte2,slbclopt,arcibte,arcobte,ibarctemap,obarctemap,ibarcte,obarcte] ignore=yes
+ren [ibslat,obslat,p1map,p2map,ib1,ib2,ob1,ob2,ibmap,obmap,obc,ibc,ibc2,obc2,obcsrf,obcsrfi,ibcg,obcg,slbc,slbpts,ibsupblend,obsupblend] ignore=yes
+ren [obclo,ibclo,ibclosrf,ibclosrfi,obclo2,obclosrf,obclosrfi,ibclog,obclog,slblopts,slbclo] ignore=yes
+ren [ibsloblend,obsloblend,ibsloblendtr,obsloblendtr,ibsloi,obsloi,wloi] ignore=yes
+
+!  Determine how far to extend IB and OB slats
+ren trimmedslats.1 ibslat
+ren trimmedslats.2 obslat
+
+cbn p1map [(0,0)]
+cbn p2map [(0,1)]
+csb ib1 p1map ibslat.1
+csb ib2 p2map ibslat.1
+csb ob1 p1map obslat.1
+csb ob2 p2map obslat.1
+!  Extract points
+call get_coord(ib1,0,0,xib1,yib1,zib1)
+call get_coord(ib2,0,0,xib2,yib2,zib2)
+call get_coord(ob1,0,0,xob1,yob1,zob1)
+call get_coord(ob2,0,0,xob2,yob2,zob2)
+!   Extract OB face of inboard slat and ib face of ob slat
+cbn ibmap [(0,0),(1,0)]
+cbn obmap [(0,1),(1,1)]
+csb obc ibmap obslat.1
+csb ibc obmap ibslat.1
+
+trn ibc2 ibc (<xib2-xib1>,<yib2-yib1>,<zib2-zib1>)
+stc ibcsrf [ibc,ibc2]
+int ibcsrf ibcsrfi Num=1 Cut=slatbreak
+
+trn obc2 obc (<xob1-xob2>,<yob1-yob2>,<zob1-zob2>)
+stc obcsrf [obc,obc2]
+int obcsrf obcsrfi Num=1 Cut=slatbreak
+
+ngrd=101
+grd ibcsrfi.L ibcg <ngrd> tanhp Aux=0.0002,.005
+grd obcsrfi.L obcg
+
+!  Average IB and OB projections
+call get_length(ibcg,ng)
+W1=.15
+W2=.85
+for ig=1 to ng do
+   call get_coord(ibcg.<ig>,0,0,x1,y1,z1)
+   call get_coord(obcg.<ig>,0,0,x2,y2,z2)
+   x=(W1*x1+W2*x2)
+   y=(W1*y1+W2*y2)
+   z=(W1*z1+W2*z2)
+   cst slbpts [(x,y,z)]
+enddo
+!  Build slat blend on Upper surfaces
+fcv slbc slbpts
+stc ibsupblend [ibc,slbc]
+stc obsupblend [slbc,obc]
+
+!  Repeat for lower surfaces
+csb obclo ibmap obslat.3
+csb ibclo obmap ibslat.3
+
+trn ibclo2 ibclo (<xib2-xib1>,<yib2-yib1>,<zib2-zib1>)
+stc ibclosrf [ibclo,ibclo2]
+int ibclosrf ibclosrfi Num=1 Cut=slatbreak
+
+trn obclo2 obclo (<xob1-xob2>,<yob1-yob2>,<zob1-zob2>)
+stc obclosrf [obclo,obclo2]
+int obclosrf obclosrfi Num=1 Cut=slatbreak
+
+ngrd=101
+grd ibclosrfi.L ibclog <ngrd> tanhp Aux=0.0002,.005
+grd obclosrfi.L obclog
+
+!  Average IB and OB projections
+call get_length(ibclog,ng)
+W1=.15
+W2=.85
+for ig=1 to ng do
+   call get_coord(ibclog.<ig>,0,0,x1,y1,z1)
+   call get_coord(obclog.<ig>,0,0,x2,y2,z2)
+   x=(W1*x1+W2*x2)
+   y=(W1*y1+W2*y2)
+   z=(W1*z1+W2*z2)
+   cst slblopts [(x,y,z)]
+enddo
+
+!  Build slat blend
+fcv slbclo slblopts
+stc ibsloblend [ibclo,slbclo]
+stc obsloblend [slbclo,obclo]
+
+!  Intersect lower blend with wing lower surfaces
+!  ---> This is a potential failure as different IB/OB trims and chords could result in partial or no trim here.
+!   --> Revisit this
+ssi ibsloblend winglo ibsloi wloi
+ssi obsloblend winglo obsloi wloi
+!@geomcom:limsurf.com(ZSURF=ibsloblend,ZRIGHT=ibsloi.L,ZOUT=ibsloblendtr,ZDRAW=NO,ZSUPPRESS=YES)
+!@geomcom:limsurf.com(ZSURF=obsloblend,ZRIGHT=obsloi.L,ZOUT=obsloblendtr,ZDRAW=NO,ZSUPPRESS=YES)
+
+!  Create arc-conic section for blend
+
+!  Extract blend TEs 
+ren [temap,blteib,blteob,arcib2,arcob1,slbte,slbte2,slbclopt,arcibte,arcobte,ibarctemap,obarctemap,ibarcte,obarcte] ignore=yes
+cbn temap [(0,0),(0,1)]
+csb blteib temap ibsupblend
+csb blteob temap obsupblend
+!  Avg arc radius
+csb arcib2 obmap ibslat.2
+csb arcob1 ibmap obslat.2
+len arcib2 Out=arc1
+len arcob1 Out=arc2
+arc=(arc1*W1+arc2*W2)
+!  Extract TE of upper arc section
+csb slbte (0) slbc
+!  Translate it straight back - (Not kinematically perfect)
+trn slbte2 slbte (arc,0,0)
+!  Project to the wing surfaces
+clo wingup slbclopt slbte2
+!  Create sub-range map from that result to the 
+csb arcibte [(0,1)] slatlist.1.1
+csb arcobte [(0,0)] slatlist.2.1
+cbn ibarctemap [arcibte,slbclopt.1]
+cbn obarctemap [slbclopt.1,arcobte]
+csb ibarcte ibarctemap wingup
+csb obarcte obarctemap wingup
+
+! Blend break section with undeflected wing on upper surface
+ren [wui,wuicpt,bcaft,brkconic,iconblend,oconblend,bl1,bl2] ignore=yes
+int wingup wui Num=1 Cut=slatbreak
+clo wui.L wuicpt slbclopt
+ecv wui.L bcaft (0) wuicpt.1
+blc brkconic bcaft slbc Parameter-1= Parameter-2= 1 1 1. 1.0 cubic-b-spline
+
+! Blend conic surfaces are created based on 4 bounding curves with no other controls
+!   IB arc-conic edges ZBOT,ZTOP,ZLEFT,ZRIGHT
+!       arcib2, brkconic, ibarcte,blteib  
+!   OB  brkconic, arcob1, obarcte,blteob
+!  Note : specifying LE/TE first is significant. Looks like CBS error
+cbs iconblenda ibarcte blteib arcib2 brkconic
+cbs oconblenda obarcte blteob brkconic arcob1
+@geomcom:flipst.com(ZISRF=iconblenda,ZINP=(2,1),ZDRAW=NO,ZOSRF=iconblend)
+@geomcom:flipst.com(ZISRF=oconblenda,ZINP=(2,1),ZDRAW=NO,ZOSRF=oconblend)
+ren [iconblenda,oconblenda]
+ccm upsblend [ibsupblend,obsupblend]
+ccm losblend [ibsloblend,obsloblend]
+ccm conblend [iconblend,oconblend]
+atl bl1 [upsblend,conblend,losblend]
+!atl bl2 [obsupblend,oconblend,obsloblend]
+atl blendlist [bl1]
+
+ren [wui,wuicpt,bcaft,brkconic,iconblend,oconblend,bl1,bl2] ignore=yes
+ren [temap,blteib,blteob,arcib2,arcob1,slbte,slbte2,slbclopt,arcibte,arcobte,ibarctemap,obarctemap,ibarcte,obarcte] ignore=yes
+ren [ibslat,obslat,p1map,p2map,ib1,ib2,ob1,ob2,ibmap,obmap,obc,ibc,ibc2,obc2,obcsrf,obcsrfi,ibcg,obcg,slbc,slbpts,ibsupblend,obsupblend] ignore=yes
+ren [obclo,ibclo,ibclosrf,ibclosrfi,obclo2,obclosrf,obclosrfi,ibclog,obclog,slblopts,slbclo] ignore=yes
+ren [ibsloblend,obsloblend,ibsloblendtr,obsloblendtr,ibsloi,obsloi,wloi] ignore=yes

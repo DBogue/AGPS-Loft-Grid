@@ -1,0 +1,8 @@
+
+!  Add TE surf
+cbn teumap [(0,0),(0,1)]
+cbn telmap [(1,0),(1,1)]
+csb teu teumap wing
+csb tel telmap wing
+stc tesrf [tel,teu]
+dra tesrf col=yel

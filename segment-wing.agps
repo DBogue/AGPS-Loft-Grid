@@ -1,0 +1,34 @@
+!  segment-wing.agps
+!
+!  Inputs
+!    wing   T18 surface
+!      kinks:  T9 string of 1D points, specifying y-coord of LE/TE Kink
+
+!  Outputs
+!    wingtrlist   T0 list of T0 list
+!                  --> wingtrlist.* list contains a spanwise segment
+!                    --> wingtrlist.*.* contains surfaces at a given spanwise section 
+!                      --> Ordered from US TE->US LE -> LS-TE
+!_____________________________________________________
+
+! Split Wing into upper/lower surfs
+@/usr/local/AGPS2281/pack/com/wnguplo.com(ZSURF=wing,NSEC=21,ZUPPER=wingup,ZLOWER=winglo,ZLECUR=lecrv)
+
+!  Evaluate kinks
+ecd lecrv kinks position At=kinks Kink-Angle-Tol=3
+call get_length(kinks,nkinks)
+nkinks=0
+if nkinks > 0 then
+  for ik=1 to nkinks do
+     call get_coord(kinks.<ik>,0,0,xkink,ykink,zkink)
+     but wingup wupilist Num=1 First=<ykink>
+     but wingup wupilist Num=1 First=<ykink>
+     $call get_coord(wupilist.L.1,0,0,s1ute,t1ute)
+     $call get_coord(wupilist.L.1,1,0,s1ute,t1ute)
+     $call get_coord(wloilist.L.1,0,0,s1Lte,t1Lte)
+     $call get_coord(wloilist.L.1,1,0,s1Lte,t1Lte)
+     
+  enddo
+else
+  
+endif

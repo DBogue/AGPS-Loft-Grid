@@ -1,0 +1,73 @@
+!   hang-airfoils.agps
+!   D.Bogue Nov  2018
+!
+!  Inputs
+!    ysections   T9 string of y values to place airfoils (Y)
+!    tcpts       T9 string of t/c ratio  (Y,t/c)
+!    twiststr    T9 string of airfoil twist (Y,twist) Twist around LE.  Move to Aft spar later
+!    airfpts     T9 string with airfoil index specification (Y,airfoilindex) of airfoillist
+!      radlemin     Symbol for minimum LE radius
+!      tethick      Symbol for trailing edge thickness  - Constant across span
+!      ybreak       Symbol for location of IB/OB LE break
+!      dyblend      Symbol for delta-span IB & OB for blend region
+!    
+!   
+!  Outputs
+!     wgridlist   T0  List of airfoils. Each airfoil is a set of points (T9)
+!
+!__________________________________________________
+
+!  Fit curves for inputs for interpolation
+fcv  tccrv tcpts linear
+fcv twistcrv twiststr  linear
+fcv airfcrv airfpts linear
+fcv lecrv lestr linear
+fcv tecrv testr linear
+
+!  Loop through  specified Y-Locations to hang airfoils
+!   --> Method is to intersect curves with spanwise sections (pci)
+call get_length(ysections,nsect)
+for  i=1 to nsect do
+    call get_coord(ysections.<i>,0,0,ys)
+    pci lecrv leci Num=1 Cut=(0,-1,0,<ys>)
+    pci tecrv teci Num=1 Cut=(0,-1,0,<ys>)
+    fcv cline [leci.L,teci.L]
+    len cline Output=chord
+    call get_coord(leci.L,0,0,xle,yle,zle)
+    pci tccrv toci Num=1 Cut=(-1,0,0,<ys>)
+    pci twistcrv twcrvi Num=1 Cut=(-1,0,0,<ys>)
+    pci airfcrv  airfci Num=1 Cut=(-1,0,0,<ys>)
+    call  get_coord(toci.L,0,0,yle,toc)
+    call  get_coord(airfci.L,0,0,yle,airfindex)
+    call  get_coord(twcrvi.L,0,0,yle,twist)
+    iairfoil=airfindex
+    !   Add LE  radius if y > ybreak + dytol
+    if  yle  >  ybreak then
+        call get_length(airfoillist.<iairfoil>,np)
+        for ip=1 to np do
+            call get_coord(airfoillist.<iairfoil>.<ip>,0,0,x,y,z)
+            $xler=radlemin/chord
+            dz=xler*(sqrt(x)*(1-x)*(z/abs(z+1e-12)))
+            cst foil1 [(x,y,z+dz)]
+        enddo
+    else
+        cst foil1 airfoillist.<iairfoil>.*
+        ibreak=i
+    endif
+    
+    !   Scale in X,Z 
+    scl foil2 foil1 (chord,0,chord*(toc/0.025))
+
+    !   Add TE thickness
+    $teop=tethick
+    @BOOM:opente2.com(ZAFIN=foil2,ZAFOUT=foil3)
+    
+    !   Add twist
+    rot foil4 foil3 (0,twist,0)
+    
+    !   Translate section to LE point
+    trn  foil5 foil4 (xle,yle,zle)
+    
+    atl wgridlist foil5
+    ren [foil1,foil2,foil3,foil4,cline,foil5]
+enddo

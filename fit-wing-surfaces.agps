@@ -1,0 +1,34 @@
+!  fit-wing-surfaces.agps
+!   D.Bogue   Nov 2018
+!
+!   Inputs
+!      wgridlist   T0 list of wing airfoils (each  a T9 string of pts)
+!      ibreak      symbol Index for the spanwise break
+!
+!   Outputs
+!      wsib   T18 surface for inboard wing
+!      wstr   T18 surface for blend region
+!      wsob   T18 surface for outboard wing
+!___________________________________________________
+!
+
+!  Grids for 3 spanwise sections
+cay wgib wgridlist.1:<ibreak-1>
+cay wgtr wgridlist.<ibreak-1>:<ibreak+1>
+!@geompan:add-col.com(ARRAY=wgtr,DOUBLE=yes,QSFIT=linear)
+cay wgob wgridlist.<ibreak+1>:L
+
+!  Surface fits for each region
+fsu wsib wgib cubic
+fsu wsob wgob cubic
+fsc wstr wgtr fsc-trans.con
+
+!   Blend loft for blend region
+bls wsob wstr Master-Abutment= Slave-Abutment= Tolerance= 2 1.0
+bls wsib wstr Master-Abutment= Slave-Abutment= Tolerance= 2 1.0
+dra wsib 51 2901  51 901 col=33
+dra wsob  era=n
+dra wstr col=mag era=n
+
+ccm wing [wsib,wstr,wsob]
+

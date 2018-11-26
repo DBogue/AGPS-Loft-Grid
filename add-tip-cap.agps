@@ -1,0 +1,28 @@
+
+!  Add tip cap
+ren [tipmap,tipc1,tipc2,tiptemap,tipte,tipcrv,xtcmin,xtcmax,ztxmin,ztcmax] ignore=yes
+cbn tipmap [(0,1),(1,1)]
+csb tipc1 tipmap wing
+cbn tiptemap [(1,0),(1,1)]
+csb tipte tiptemap tesrf
+ccm tipcrv [tipte,tipc1] periodicity=yes
+lim tipcrv x xtcmin xtcmax
+lim tipcrv z ztcmin ztcmax
+call get_coord(xtcmin,0,0,xtcmn,y,q3)
+call get_coord(xtcmax,0,0,xtcmx,q2,q3)
+call get_coord(ztcmin,0,0,q1,q2,ztcmn)
+call get_coord(ztcmax,0,0,q1,q2,ztcmx)
+ren [tstr1,tstr2,tipca,tipcapt18] ignore=yes
+cst tstr1 [(xtcmn-10,y,ztcmn-10),(xtcmx+10,y,ztcmn-10)]
+cst tstr2 [(xtcmn-10,y,ztcmx+10),(xtcmx+10,y,ztcmx+10)]
+cay tipca [tstr1,tstr2]
+fsu tipcapt18 tipca
+!   Imprint tipcrv to T18 surf for Trim surf
+ren [tipcrvib,tipcrvob,tipisrf,tipisrfi,tipcapt18i,tipcap] ignore=yes
+trn tipcrvib tipcrv (0,-5,0)
+trn tipcrvob tipcrv (0,5,0)
+stc tipisrf [tipcrvib,tipcrvob]
+ssi tipcapt18 tipisrf tipcapt18i tipisrfi
+rvc tipcapt18i.1
+cts tipcap Base-surface=tipcapt18 outer-boundary=tipcapt18i.L
+dra tipcap col=mag

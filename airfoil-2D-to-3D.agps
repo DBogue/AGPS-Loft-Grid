@@ -1,0 +1,42 @@
+!   airfoil-2D-to-3D.agps
+!    D.Bogue   Nov 2018
+!
+!   Inputs
+!     airfoilinputs   T0 list of airfoils
+!
+!   Outputs
+!      airfoillist
+
+
+!  Inputs 
+npts=301           !  Number of  pts  to discretize foils
+aux1= .0000005     !  Begining spacing of hyp-tan dist
+aux2= 0.005        !  End spacing hyp-tan distribution
+
+!  Work through each airfoil in  the list
+!    Split into upper/lower curves
+!    Discretize them
+!    Convert to 3D
+$call get_length(airfoilinputs,nfoil)
+for i=1 to nfoil do
+   lim airfoilinputs.<i> x xmn xmx
+   ecv airfoilinputs.<i> lfoil (0) xmn.1
+   ecv airfoilinputs.<i> ufoil xmn.1 (1)
+   grd ufoil ufgrd <npts> tanhp tanhp 2 Left-Spacing= Right-Spacing= aux1,aux2
+   grd lfoil lfgrd <npts> tanhp tanhp 2 Left-Spacing= Right-Spacing= aux2,aux1
+   for ip=1 to npts do
+      call get_coord(ufgrd.<ip>,0,0,xu,zu)
+      call get_coord(lfgrd.<ip>,0,0,xl,zl)
+      cst ufg3d [(xu,0,zu)]
+      cst lfg3d [(xl,0,zl)]
+   enddo
+   cst fgrd [lfg3d.*,ufg3d.2:L]
+   rvs  fgrd
+   atl uflist ufoil
+   atl lflist lfoil
+   atl airfoillist fgrd
+   ren [ufgrd,lfgrd,fgrd]
+   ren [xmn,xmx,ufoil,lfoil]
+   ren [ufg3d,lfg3d]
+enddo 
+

@@ -1,0 +1,76 @@
+!  loft-body.agps
+!     D.Bogue   Nov 2018
+!
+!  Inputs
+!     fcamber   T9  string of fuselage camber line (x,y,z)
+!     fdimen    T9  string of fuselage width & height  (x,W,H)
+!     fcontrol   T9  string of fuselage rho and Upper/Lower match (X,RhoUp, RhoLo, Z/H merge)
+!     dxavg      symbol   Average delta-X between sections
+!
+!  Outputs
+!     bodyup    T18  Upper body surface
+!     bodylo    T18  Lower body surface
+!     body      T29  merged body surface
+!_____________________________________________________
+
+reset
+on error exit
+dxavg=50
+dupxtol=10
+!   Hard-code up initial inputs -> Supersede with MKBOOM inputs
+cst fcamber [(0,0,0),(100,0,0),(500,0,0),(2000,0,0)]
+cst fdimen  [(0,.5,1), (100,50,100),(500,50,120),(2000,10,20)]
+cst fcontrol [(0,.5,.5,.5),(100,.5,.55,.1),(500,.5,.65,.1),(2000,.5,.65,.3)]
+
+!  Fit curves for camber and control curves
+!    --> Sections to be placed with fdimen inputs 
+fcv camber fcamber linear
+fcv control fcontrol linear
+fcv dimen   fdimen  linear
+
+!  Set X-section locations
+call get_length(fdimen,ns)
+for i=1 to ns do
+   call get_coord(fdimen.<i>,0,0,x,w,h)
+   cst xsections [(x)]
+enddo
+for i=1 to ns-1 do
+   call get_coord(fdimen.<i>,0,0,x1,w1,h1)
+   call get_coord(fdimen.<i+1>,0,0,x2,w2,h2)
+   nsa=(x2-x1)/dxavg
+   dxeff=(x2-x1)/nsa
+   for  is=1 to nsa-1 do
+        cst xsections [(x1+dxeff*i)]
+   enddo
+enddo
+sor xsections x dup=yes tol=<dupxtol>
+
+!  Work up each section
+!    Upper and lower surface conics
+!
+call get_length(xsections,ns)
+for i=1 to ns do
+   call get_coord(xsections.<i>,0,0,x)
+   pci camber camberi Num=1 Cut=(-1,0,0,x)
+   pci control controli Num=1 Cut=(-1,0,0,x)
+   pci dimen dimeni Num=1 Cut=(-1,0,0,x)
+   call get_coord(camberi.L,0,0,x,y,z)
+   call get_coord(controli.L,0,0,x,rhoup,rholo,zoh)
+   call get_coord(dimeni.L,0,0,x,W,H)
+   !  Upper/Lower Merge point
+   zm=z - H/2 + (zoh*H)
+   !   Upper conic
+   rhc uconic [(x,W,zm),(x,0,H/2)] tangents=[(0,0,1),(0,1,0)] rho=rhoup
+   !   Lower conic
+   rhc lconic [(x,0,-H/2),(x,W,zm)] tangents=[(0,1,0),(0,0,1)] rho=rholo
+   atl upconlist uconic
+   atl loconlist lconic
+   ccm fsect [lconic,uconic]
+   atl bodylist fsect
+   ren [uconic,lconic,fsect]
+   
+enddo
+stc body bodylist.* linear
+dra body 51 501 51 501 col=33 era=n
+dra upconlist.* col=mag
+dra loconlist.* col=yel

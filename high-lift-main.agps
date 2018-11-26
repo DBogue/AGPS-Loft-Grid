@@ -1,0 +1,63 @@
+!high-lift-main.agps
+!  D.Bogue, Boom Supersonic, 9/29/18
+!
+!  Objective: Create N deflected LE's from undeflected wing
+!
+!  Inputs: 
+!      wing:   T18 surface (NURBS)
+!      slattrims:  T0 list of trim planes
+!           --> Each object is another T0 list containing 2 4D points
+!                 --> Each point is a 4D plane specification Ax+By+Cz+D=0
+!      flaptrims
+!      slathingelines:  T0 list of hinge line specs
+!                --> Each object is another T0 list containing 2 points
+!                  --> Points are IB/OB XYZ coordinates of hingelines
+!                  --> Orientation is RHR around pt1->pt2 for positive defl.
+!      flaphingelines
+!      slatdeflections: T9 string of 1D points with deflection angle. 1 per slat
+!      flapdeflections
+!      gap:  symbol for size of spanwise gap
+!      kinks:  T9 string of 1D points, specifying y-coord of LE/TE Kink
+!      
+!  Outputs
+!      winglist:  T0 list of trimmed wing segments
+!                 Undeflected segments are a single piece
+!                 Deflected segments contain a T0 list of surfs
+!                      T0 list contains slat, arc-segment and wing segment
+!      winggrids: Same organization as winglist, but with grids for slat & arc-segments
+!      
+!_____________________________________________________
+reset
+res concorde_wing.bin
+res concorde_body.bin
+res trimplanes.bin
+res hingelines.bin
+res deflections.bin
+
+!  Split wing into upper/lower, IB/OB at kinks 
+@Boom:segment-wing.agps
+
+!  Map hingeline to 'Upper' surface. Upper surface defined as vertically up for positive deflections and vertically down for negative deflections
+!   Deflect and trim slats to specified hingelines
+@Boom:deflect-slats.agps(hingelines=slathingelines,trims=slattrims,deflections=slatdeflections)
+
+!   Map hingelines for flaps
+!   Deflect Surfaces
+@Boom:deflect-flaps.agps(hingelines=flaphingelines,trims=flaptrims,deflections=flapdeflections)
+
+!  Chop up wings
+!  
+
+
+
+
+
+
+@map-hingelines.agps
+
+!  Split at slat/flap edges (span and chordwise)
+@segment-at-hingelines.agps
+
+!  Rotate Slat - Build surface lists
+@rotate-flap.agps
+

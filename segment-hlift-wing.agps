@@ -1,0 +1,205 @@
+!  segment-hlift-wing.agps
+!   D.Bogue Boom Supersonic  10/5/18
+!
+!  Objective: chop up wing into span- and chordwise surfaces
+!
+!  Inputs
+!      wingup/winglo
+!      trimmedslats
+!      trimmedflaps
+!
+!  Outputs
+!      fwdlist
+!      midlist
+!      aftlist
+!___________________________________-
+
+ren [leftmap,rightmap] ignore=yes
+ren [tecu,tecl,teculst tecllst,xtmap,tecuxt,teclxt,tecul,tecuu,tecll,teclu] ignore=yes
+ren [isrfu,isrfl,isrfui,isrfli,wui,wli] ignore=yes
+
+!  Slats first
+!  Extract out TE of slats (i.e. wing/slat intersection)
+call get_length(trimmedslats,nslats)
+cbn leftmap [(0,0),(0,1)]
+cbn rightmap [(1,0),(1,1)]
+for is=1 to nslats do
+   csb tecu leftmap trimmedslats.<is>.2 
+   csb tecl rightmap trimmedslats.<is>.3
+   atl teculst tecu
+   atl tecllst tecl
+   ren [tecu,tecl]
+enddo
+ccm tecu teculst.*
+ccm tecl1 tecllst.*
+rft tecl tecl1
+ren  tecl1
+
+!  Extend curves and intersect with wing
+cbn xtmap [(-.5),(1.5)]
+csb tecuxt xtmap tecu
+csb teclxt xtmap tecl
+trn tecul tecuxt (0,0,-10)
+trn tecll teclxt (0,0,-10)
+trn tecuu tecuxt (0,0,10)
+trn teclu teclxt (0,0,10)
+stc isrfu [tecul,tecuu]
+stc isrfl [tecll,teclu]
+ssi isrfu wingup isrfui wui
+ssi isrfl winglo isrfli wli
+call get_length(wli,nli)
+if (nli > 1) then
+   ccm wlipar wli.*.1
+   ren wli
+   csb wlic wlipar winglo
+   atl wli wlic
+endif
+atl fwdtrims [wui.L,wli.L]
+!   ---> objects wui.L.1 and wli.L.1 are par-maps of curves on the respective wings
+
+ren [tecu,tecl,teculst,tecllst,xtmap,tecuxt,teclxt,tecul,tecuu,tecll,teclu] ignore=yes
+ren [isrfu,isrfl,isrfui,isrfli,wui,wli] ignore=yes
+!  Repeat for flaps
+!  Extract out TE of flaps (i.e. wing/flap intersection)
+call get_length(trimmedflaps,nflaps)
+for if=1 to nflaps do
+   csb tecu leftmap trimmedflaps.<if>.2 
+   csb tecl leftmap trimmedflaps.<if>.3
+   atl teculst tecu
+   atl tecllst tecl
+   ren [tecu,tecl]
+enddo
+cbn tep1map [(0,1)]
+csb tep1 tep1map trimmedflaps.1.2
+cbn tep2map [(0,0)] 
+csb tep2 tep2map trimmedflaps.2.2
+fcv tefill [tep1,tep2]
+atl teculst tefill Insert=teculst.2
+ren [tep1,tep2]
+csb tep1 tep1map trimmedflaps.1.3
+csb tep2 tep2map trimmedflaps.2.3
+fcv tefill2 [tep1,tep2]
+atl tecllst tefill2 Insert=tecllst.2
+ccm tecu teculst.*
+ccm tecl1 tecllst.*
+rft tecl tecl1
+
+!  Extend curves and intersect with wing
+cbn xtmap [(-.5),(1.5)]
+csb tecuxt xtmap tecu
+csb teclxt xtmap tecl
+trn tecul tecuxt (0,0,-10)
+trn tecll teclxt (0,0,-10)
+trn tecuu tecuxt (0,0,10)
+trn teclu teclxt (0,0,10)
+stc isrfu [tecul,tecuu]
+stc isrfl [tecll,teclu]
+ssi isrfu wingup isrfui wui
+ssi isrfl winglo isrfli wli
+!   ---> objects wui.L.1 and wli.L.1 are par-maps of curves on the respective wings
+
+@geomcom:limsurf.com(ZSURF=wingup,ZLEFT=wui.L,ZRIGHT=fwdtrims.1,ZOUT=midup,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=wingup,ZRIGHT=wui.L,ZOUT=aftup,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=wingup,ZLEFT=fwdtrims.1,ZOUT=fwdup,ZDRAW=NO,ZSUPPRESS=YES)
+
+@geomcom:limsurf.com(ZSURF=winglo,ZRIGHT=wli.L,ZLEFT=fwdtrims.2,ZOUT=midlo,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=winglo,ZLEFT=wli.L,ZOUT=aftlo,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=winglo,ZRIGHT=fwdtrims.2,ZOUT=fwdlo,ZDRAW=NO,ZSUPPRESS=YES)
+
+!dra  fwd* col=222
+dra mid* col=gre
+!dra aft* col=222
+!
+!   Split undeflected LE surfaces into pieces
+ren [zeromap,tipmap,teslib,texlob,clopt,fwdupibarc,fwdupobarc,aftupibarc,aftupmidarc,aftupobarc] ignore=yes
+cbn zeromap [(0,0)]
+csb teslib zeromap trimmedslats.1.1
+clo fwdup clopt teslib
+call get_coord(clopt.1,0,0,si,t)
+
+ren clopt
+cbn tipmap [(0,1)]
+csb teslob tipmap trimmedslats.L.1
+clo fwdup clopt teslob
+call get_coord(clopt.1,0,0,so,t)
+ren clopt
+
+int fwdup fwdupi Num=1 Cut=slattrims.1.1
+int fwdup fwdupi Num=1 Cut=slattrims.L.2
+@geomcom:limsurf.com(ZSURF=fwdup,ZTOP=fwdupi.L-1,SMIN=si,ZOUT=fwdupib,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=fwdup,ZTOP=fwdupi.L-1,SMAX=si,ZOUT=fwdupibarc,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=fwdup,ZBOT=fwdupi.L,SMIN=so,ZOUT=fwdupob,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=fwdup,ZBOT=fwdupi.L,SMAX=so,ZOUT=fwdupobarc,ZDRAW=NO,ZSUPPRESS=YES)
+dra fwdupib col=mag
+dra fwdupob
+dra fwdupibarc col=33
+
+!   Split undeflected LE surfaces into pieces
+ren [zeromap,tipmap,teslib,teslob,clopt,aftupibarc,aftupmidarc,aftupobarc] ignore=yes
+cbn zeromap [(1,0)]
+csb teslib zeromap trimmedflaps.1.1
+clo aftup clopt teslib
+call get_coord(clopt.1,0,0,si,t)
+ren clopt
+
+csb teslmid zeromap trimmedflaps.2.1
+clo aftup clopt teslmid
+call get_coord(clopt.1,0,0,smid,t)
+ren clopt
+
+cbn tipmap [(1,1)]
+csb teslob tipmap trimmedflaps.L.1
+clo aftup clopt teslob
+call get_coord(clopt.1,0,0,so,t)
+ren clopt
+
+int aftup aftupi Num=1 Cut=flaptrims.1.1
+int aftup aftupi Num=1 Cut=flaptrims.1.2
+int aftup aftupi Num=1 Cut=flaptrims.2.1
+int aftup aftupi Num=1 Cut=flaptrims.L.2
+@geomcom:limsurf.com(ZSURF=aftup,ZTOP=aftupi.1,SMIN=si,ZOUT=aftupibarc,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftup,ZTOP=aftupi.1,SMAX=si,ZOUT=aftupib,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftup,ZBOT=aftupi.2,SMIN=smid,ZTOP=aftupi.3,ZOUT=aftupmidarc,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftup,ZBOT=aftupi.2,smax=smid,ZTOP=aftupi.3,ZOUT=aftupmid,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftup,ZBOT=aftupi.L,SMIN=so,ZOUT=aftupobarc,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftup,ZBOT=aftupi.L,SMAX=so,ZOUT=aftupob,ZDRAW=NO,ZSUPPRESS=YES)
+
+dra fwdupib col=mag
+dra fwdupob
+dra fwdupibarc col=33
+dra *arc col=yel
+
+dra aftupib col=mag
+dra aftupob
+dra aftupmid
+pause
+!
+int fwdlo fwdloi Num=1 Cut=slattrims.1.1
+int fwdlo fwdloi Num=1 Cut=slattrims.L.2
+@geomcom:limsurf.com(ZSURF=fwdlo,ZTOP=fwdloi.L-1,ZOUT=fwdloib,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=fwdlo,ZBOT=fwdloi.L,ZOUT=fwdloob,ZDRAW=NO,ZSUPPRESS=YES)
+dra fwdloib col=mag
+dra fwdloob
+
+
+int aftlo aftloi Num=1 Cut=flaptrims.1.1
+int aftlo aftloi Num=1 Cut=flaptrims.1.2
+int aftlo aftloi Num=1 Cut=flaptrims.L.1
+int aftlo aftloi Num=1 Cut=flaptrims.L.2
+@geomcom:limsurf.com(ZSURF=aftlo,ZTOP=aftloi.1,ZOUT=aftloib,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftlo,ZBOT=aftloi.2,ZTOP=aftloi.3,ZOUT=aftlomid,ZDRAW=NO,ZSUPPRESS=YES)
+@geomcom:limsurf.com(ZSURF=aftlo,ZBOT=aftloi.L,ZOUT=aftloob,ZDRAW=NO,ZSUPPRESS=YES)
+dra aftloib col=mag
+dra aftloob
+dra aftlomid
+
+atl slatib [fwdupib,fwdupibarc,fwdloib]
+atl slatob [fwdupob,fwdupobarc,fwdloob]
+atl slatsurfs [slatib,trimmedslats.*,slatob]
+
+atl flapib [aftupib,aftupibarc,aftloib]
+atl flapmid [aftupmid,aftupmidarc,aftlomid]
+atl flapob [aftupob,aftupobarc,aftloob]
+atl flapsurfs [flapib,trimmedflaps.1,flapmid,trimmedflaps.2,flapob]
+
+atl midsurfs [midup,midlo]

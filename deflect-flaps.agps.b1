@@ -1,0 +1,211 @@
+!  deflect-flaps.agps
+!
+!   Inputs
+!     wingup    Upper wing surface
+!     winglo    Lower wing surface
+!      trims:  T0 list of trim planes
+!           --> Each object is another T0 list containing 2 4D points
+!                 --> Each point is a 4D plane specification Ax+By+Cz+D=0
+!      hingelines:  T0 list of hinge line specs
+!                --> Each object is another T0 list containing 2 points
+!                  --> Points are IB/OB XYZ coordinates of hingelines
+!                  --> Orientation is RHR around pt1->pt2 for positive defl.
+
+
+!   Outputs
+!     
+!_____________________________________________________________
+
+call get_length(hingelines,nflaps)
+ren flaplist ignore=yes
+write '--> Deflecting Flaps on Upper Surface <----'
+for if=1 to nflaps do
+   ren [hline,hlinepts,clopt,xtmap,hlproj,hlprojc,hlprojcxt,hlprojcxti,hlprojctr] ignore=yes
+   ren [hlprojcxtu,hlprojcxtl,hlintsrf,wui,hlii,wupi,wuii,wupii,hltrmap,hltrimmed] ignore=yes
+   ren [ibtrmap,obtrmap,ibmaptrim,obmaptrim,ibcrv,obcrv,obmap,ibmap,flapup] ignore=yes
+   ren [ib1,ob1,ib2,ob2,ib3,ob3,hlwing,hlup,hllo,hlintsrf2,hlisi,wingupi] ignore=yes
+   !  Disretize hingelines 
+   fcv hline  [hingelines.<if>.1:2]
+   grd hline hlinepts 21 linear linear
+   call get_length(hlinepts,npts)
+   ren [clopt] ignore=yes
+   for ip=1 to npts  do
+        clo wingup clopt hlinepts.<ip> Dist-Symbol=
+        cst hlproj clopt
+        ren clopt
+   enddo
+   !  Extend this a little to insure clean trim   
+   cbn xtmap [(-0.05),(1.05)]
+   fcv hlprojc hlproj
+   csb hlprojcxt xtmap hlprojc
+   !  Trim back to specified plane
+   pci hlprojcxt hlprojcxti Number-Of-Planes=1 trims.<if>
+   ecv hlprojcxt hlprojctr hlprojcxti.1.1 hlprojcxti.2.1
+   
+   trn hlprojcxtu hlprojcxt (0,0,1)
+   trn hlprojcxtl hlprojcxt (0,0,-1)
+   stc hlintsrf [hlprojcxtl,hlprojcxtu]
+   ssi wingup hlintsrf wui hlii
+   !  Wing Sub-range par-curve is wui.L.1
+   !  Chop wing along trim planes
+   !    wui is the aft trim on the wing
+   int wingup wupi Num=1 0 yes trims.<if>.1 Chord=.001  Quick=NO
+   int wingup wupi Num=1 0 yes trims.<if>.2 Chord=.001  Quick=NO
+   csi wupi.L-1 hlintsrf wupii hlintsrfi
+   csi wupi.L   hlintsrf wupii hlintsrfi
+   csb ib1 wupii.1.1 wupi.L-1
+   csb ob1 wupii.L.1 wupi.L
+   clo wingup ib2 ib1
+   clo wingup ob2 ob1
+   clo wui.L ib3 ib2
+   clo wui.L ob3 ob2
+   ecv wui.L hlwing ib3.1 ob3.1
+   trn hllo hlwing (0,0,-10)
+   trn hlup hlwing (0,0,10)
+   stc hlintsrf2 [hllo,hlup]
+   ssi wingup hlintsrf2 wingupi hlisi
+   !cci wui.L.1 wupi.L-1.1 wuii wupii (0,0,1) Dist-Symbol=
+   !cci wui.L.1 wupi.L.1   wuii wupii (0,0,1) Dist-Symbol=
+   !  Trim back hingeline mapped to wing surface
+   cbn hltrmap [ib3.1,ob3.1]
+   csb hltrimmed hltrmap wui.L
+   
+   cbn ibmaptrim [(0),wupii.L-1.1]
+   csb ibmap ibmaptrim wupi.L-1.1
+   csb ibcrv ibmap wingup
+   cbn obmaptrim [(0),wupii.L.1]
+   csb obmap obmaptrim wupi.L.1
+   csb obcrv obmap wingup
+   @geomcom:limsurf.com(ZSURF=wingup,ZBOT=ibcrv,ZTOP=obcrv,ZLEFT=wui.L,SMAX=1.,ZOUT=flapup,ZDRAW=NO,ZSUPPRESS=YES)
+   atl flaplist [flapup]
+enddo
+
+write '--> Deflecting Flaps on Lower Surface <----'
+call get_length(hingelines,nflaps)
+!  Now the lower flap
+for if=1 to nflaps do
+   ren [hline,hlinepts,clopt,xtmap,hlproj,hlprojc,hlprojcxt,hlprojcxti,hlprojctr] ignore=yes
+   ren [hlprojcxtu,hlprojcxtl,hlintsrf,wui,hlii,wupi,wuii,wupii,hltrmap,hltrimmed] ignore=yes
+   ren [ibtrmap,obtrmap,ibmaptrim,obmaptrim,ibcrv,obcrv,obmap,ibmap,flapup,flaplo,flaplotr] ignore=yes
+   ren [ib1,ob1,ib2,ob2,ib3,ob3,hlwing,hlup,hllo,hlintsrf2,hlisi,wingupi] ignore=yes
+   ren [ib1,ob1,ib2,ob2,ib3,ob3,hlwing,hlup,hllo,hlintsrf2,hlisi,wingupi] ignore=yes
+   !  Disretize hingelines 
+   fcv hline  [hingelines.<if>.1:2]
+   grd hline hlinepts 21 linear linear
+   call get_length(hlinepts,npts)
+   ren [clopt] ignore=yes
+   for ip=1 to npts  do
+        clo winglo clopt hlinepts.<ip> Dist-Symbol=
+        cst hlproj clopt
+        ren clopt
+   enddo
+   !  Extend this a little to insure clean trim   
+   cbn xtmap [(-0.05),(1.05)]
+   fcv hlprojc hlproj
+   csb hlprojcxt xtmap hlprojc
+   !  Trim back to specified plane
+   pci hlprojcxt hlprojcxti Number-Of-Planes=1 trims.<if>
+   ecv hlprojcxt hlprojctr hlprojcxti.1.1 hlprojcxti.2.1
+   
+   trn hlprojcxtu hlprojcxt (0,0,1)
+   trn hlprojcxtl hlprojcxt (0,0,-1)
+   stc hlintsrf [hlprojcxtl,hlprojcxtu]
+   ssi winglo hlintsrf wui hlii
+   !  Wing Sub-range par-curve is wui.L.1
+   
+   !  Chop wing along trim planes
+   int winglo wupi Num=1 0 yes trims.<if>.1 Chord=.001  Quick=NO
+   int winglo wupi Num=1 0 yes trims.<if>.2   Chord=.001  Quick=NO
+   csi wupi.L-1 hlintsrf wupii hlintsrfi
+   csi wupi.L   hlintsrf wupii hlintsrfi
+   csb ib1 wupii.1.1 wupi.L-1
+   csb ob1 wupii.L.1 wupi.L
+   clo winglo ib2 ib1
+   clo winglo ob2 ob1
+   clo wui.L ib3 ib2
+   clo wui.L ob3 ob2
+   ecv wui.L hlwing ib3.1 ob3.1
+   trn hllo hlwing (0,0,-10)
+   trn hlup hlwing (0,0,10)
+   stc hlintsrf2 [hllo,hlup]
+   ssi winglo hlintsrf2 wingupi hlisi
+   !cci wui.L.1 wupi.L-1.1 wuii wupii (0,0,1) Dist-Symbol=
+   !cci wui.L.1 wupi.L.1   wuii wupii (0,0,1) Dist-Symbol=
+   !  Trim back hingeline mapped to wing surface
+   cbn hltrmap [ib3.1,ob3.1]
+   csb hltrimmed hltrmap wui.L
+   
+   cbn ibmaptrim [wupii.L-1.1,(1)]
+   csb ibmap ibmaptrim wupi.L-1.1
+   csb ibcrv ibmap winglo
+   cbn obmaptrim [wupii.L.1,(1)]
+   csb obmap obmaptrim wupi.L.1
+   csb obcrv obmap winglo
+   @geomcom:limsurf.com(ZSURF=winglo,ZBOT=ibcrv,ZTOP=obcrv,ZRIGHT=wui.L,SMIN=0.,ZOUT=flaplo,ZDRAW=NO,ZSUPPRESS=YES)
+   atl flaplist [flaplo]
+   dra flaplist.* col=33
+enddo
+   ren [hline,hlinepts,clopt,xtmap,hlprojc,hlprojcxt,hlprojcxti,hlprojctr] ignore=yes
+   ren [hlprojcxtu,hlprojcxtl,hlintsrf,wui,hlii,wupi,wuii,wupii,hltrmap,hltrimmed] ignore=yes
+   ren [ibtrmap,obtrmap,ibmaptrim,obmaptrim,ibcrv,obcrv,obmap,ibmap,flapup,flaplo] ignore=yes
+   ren [ib1,ob1,ib2,ob2,ib3,ob3,hlwing,hlup,hllo,hlintsrf2,hlisi,wingupi] ignore=yes
+   
+   
+ren [flapdef,sltr,sltemap,flaparc,arclist,flaprad] ignore=yes
+ren [flaplod,flapupd,flapupdxt,flaplodxt,flapradxt,flapupdxti,flaplodxti,flapradxti] ignore=yes
+ren [flapupdtr,flaplodtr,flapradtr,slte] ignore=yes
+ren [trimmedflaps,hline] ignore=yes
+write '--> Rotating Flaps <----'
+! Rotate parts
+call get_length(hingelines,nflaps)
+for iflap=1 to nflaps
+   call get_coord(deflections.<iflap>,0,0,defl)
+   !  Rotate the upper flap
+   fcv hline   [hingelines.<iflap>.1:2]
+   gtx flapupd flaplist.<iflap> rot <-defl> hline Arg3= Arg4=
+   !  Create arc-conic segment between flap and wing upper surfaces
+   write '----> Creating Arc-segment <----'
+   cbn sltemap [(0,0),(0,1)]
+   csb slte sltemap flaplist.<iflap>
+   for irot=1 to 30 do
+      ang=(irot-1)*(-defl/(30-1))
+      gtx flaparc slte rot <ang> hline Arg3= Arg4=
+      atl arclist flaparc
+      ren [flaparc]
+   enddo
+   stc flaprad arclist.*
+   dra flaprad col=33
+   !   Rotate the lower flap and trim with wing
+   gtx flaplod flaplist.<iflap+nflaps> rot <-defl> hline 
+   ssi flaplod winglo flaploi wingloi
+   @geomcom:limsurf.com(ZSURF=flaplod,ZRIGHT=flaploi.L,ZOUT=flaplodtr,ZDRAW=no,ZSUPPRESS=yes)
+   ren flaplod
+   ren flaplodtr flaplod
+   write '-------> Extend then trim flap upper/lower/arc-conic <----'
+!   pause
+   !   Extend and trim each segment to specified trim planes
+   !    --> Each surface extended in 't' direction
+   @geomcom:flipst.com(ZISRF=flaprad,ZINP=(2,1),ZDRAW=NO,ZOSRF=flaprad2)
+   ren flaprad
+   ren flaprad2 flaprad
+   write ' --> Extending surfaces <----'
+   @geomcom:limsurf.com(ZSURF=flapupd,TMIN=-0.05,TMAX=1.05,ZOUT=flapupdxt,ZDRAW=no,ZSUPPRESS=yes)
+   @geomcom:limsurf.com(ZSURF=flaplod,TMIN=-0.05,TMAX=1.05,ZOUT=flaplodxt,ZDRAW=no,ZSUPPRESS=yes)
+   @geomcom:limsurf.com(ZSURF=flaprad,TMIN=-0.05,TMAX=1.05,ZOUT=flapradxt,ZDRAW=no,ZSUPPRESS=yes)
+   int flapupdxt flapupdxti Num=2 Cut=trims.<iflap>
+   int flaplodxt flaplodxti Num=2 Cut=trims.<iflap>
+   int flapradxt flapradxti Num=2 Cut=trims.<iflap>
+   write 'Trimming extended surfaces'
+!   pause
+   @geomcom:limsurf.com(ZSURF=flapupdxt,ZBOT=flapupdxti.L-1,ZTOP=flapupdxti.L,ZOUT=flapupdtr,ZDRAW=no,ZSUPPRESS=yes)
+   @geomcom:limsurf.com(ZSURF=flaplodxt,ZBOT=flaplodxti.L-1,ZTOP=flaplodxti.L,ZOUT=flaplodtr,ZDRAW=no,ZSUPPRESS=yes)
+   @geomcom:limsurf.com(ZSURF=flapradxt,ZBOT=flapradxti.L-1,ZTOP=flapradxti.L,ZOUT=flapradtr,ZDRAW=no,ZSUPPRESS=yes)   
+   write 'Completed parts trim'
+   atl flaps [flapupdtr,flapradtr,flaplodtr]
+   atl trimmedflaps [flaps]
+   ren [flaps]
+   ren [flapdef,sltr,sltemap,flaparc,arclist,flaprad] ignore=yes
+   ren [flaplod,flapupd,flapupdxt,flaplodxt,flapradxt,flapupdxti,flaplodxti,flapradxti] ignore=yes
+   ren [flapupdtr,flaplodtr,flapradtr,slte] ignore=yes 
+   ren [hline] ignore=yes
+enddo

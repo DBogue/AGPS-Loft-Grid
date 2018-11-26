@@ -1,0 +1,28 @@
+reset
+fcv chord [(0,0,0),(1,0,0)]
+grd chord grid 501 tanhp tanhp Aux=.00000001,.005
+
+call get_length(grid,ng)
+for i=1 to ng do
+    call get_coord(grid.<i>,0,0,x,q1,q2)
+    zu = 0.05*x*(1-x)
+    zl = -zu
+    cst upts [(x,zu)]
+    cst lpts [(x,zl)]
+enddo
+rvs upts
+cst biconvex [upts.*,lpts.2:L]
+dra biconvex
+dra biconvex.*
+
+fcv bicu upts cubic
+fcv bicl lpts cubic
+rvc bicu
+rvc bicl
+
+dra bicu col=33
+dra bicl col=mag era=n
+ccm biconvfoil [bicl,bicu]
+pause
+dra biconvfoil col=yel
+sav biconvex [biconvex,biconvfoil]
